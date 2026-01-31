@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>HELMET DETECTION PROJECT</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root{
+            --bg:#f4f6fb;
+            --card:#ffffff;
+            --muted:#6b7280;
+            --accent1:linear-gradient(90deg,#5568ff,#22c1c3);
+            --radius:12px;
+            --shadow: 0 6px 18px rgba(30,41,59,0.08);
+        }
+        *{box-sizing:border-box}
+        body {
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: radial-gradient(1200px 400px at 10% 10%, rgba(85,104,255,0.06), transparent), var(--bg);
+            margin: 0;
+            color: #0f172a;
+            -webkit-font-smoothing:antialiased;
+        }
+
+        header.app-header{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:16px;
+            padding:20px 28px;
+            max-width:1200px;
+            margin:18px auto 6px;
+        }
+        .brand{
+            display:flex;align-items:center;gap:14px;
+        }
+        .logo{
+            width:48px;height:48px;border-radius:10px;background:var(--accent1);box-shadow:var(--shadow);
+            display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700
+        }
+        h1.title{font-size:20px;margin:0}
+        p.subtitle{margin:0;color:var(--muted);font-size:13px}
+
+        .main-container{
+            display:flex;flex-wrap:wrap;gap:20px;justify-content:center;align-items:flex-start;
+            max-width:1200px;margin:22px auto;padding:0 20px;
+        }
+
+        .box{
+            background:var(--card);
+            padding:18px;
+            width:360px;
+            border-radius:var(--radius);
+            box-shadow:var(--shadow);
+            display:flex;flex-direction:column;align-items:stretch;
+        }
+
+        .box h3{margin:0 0 10px 0;font-size:16px}
+
+        .controls{display:flex;gap:8px;flex-wrap:wrap}
+
+        input[type=file]{
+            width:100%;padding:10px;border-radius:8px;border:1px dashed #e6e9ef;background:transparent;color:var(--muted);
+        }
+
+        button{
+            padding:10px 14px;border-radius:8px;border:0;cursor:pointer;font-weight:600;color:#fff;background:var(--accent1);
+            box-shadow: 0 6px 14px rgba(34,193,195,0.12);
+            transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+        }
+        button.secondary{background:#f3f4f6;color:#0f172a;font-weight:600;box-shadow:none;border:1px solid #e6e9ef}
+        button:active{transform:translateY(1px)}
+        button:disabled{opacity:.6;cursor:not-allowed}
+
+        video, img{margin-top:12px;width:100%;border-radius:10px;display:block;object-fit:cover}
+
+        .result-box{margin-top:12px;padding:12px;background:#fafbff;border-radius:10px;min-height:120px;font-size:14px;text-align:left;color:#0f172a}
+        .result-box img{margin-top:10px;border-radius:8px;border:1px solid #eef2ff}
+
+        footer{max-width:1200px;margin:20px auto 48px;padding:0 20px;color:var(--muted);font-size:13px;text-align:center}
+
+        @media (max-width:920px){
+            .box{width:100%;max-width:640px}
+            header.app-header{padding:14px}
+        }
+    </style>
+</head>
+<body>
+
+<header class="app-header">
+    <div class="brand">
+        <div class="logo">HD</div>
+        <div>
+            <h1 class="title">Helmet Detection</h1>
+            <p class="subtitle">Detect helmets and license plates — local backend</p>
+        </div>
+    </div>
+    <div class="actions">
+        <span style="color:var(--muted);font-size:13px">API: http://127.0.0.1:8001/detect/</span>
+    </div>
+</header>
+
+<div class="main-container">
+
+    <!-- IMAGE -->
+    <div class="box">
+        <h3>Image Detection</h3>
+        <input type="file" id="imageInput" accept="image/*"><br><br>
+        <button onclick="detectImage()">Detect</button>
+        <div id="imagePreview"></div>
+        <div id="imageResult" class="result-box"></div>
+    </div>
+
+    <!-- VIDEO -->
+    <div class="box">
+        <h3>Video Detection</h3>
+        <input type="file" id="videoInput" accept="video/*"><br><br>
+        <button id="videoDetectBtn" onclick="toggleVideoDetect()">Start Detect</button>
+        <button id="videoStopBtn" onclick="stopVideoDetect()" disabled>Stop Detect</button>
+        <div style="position:relative; margin-top:10px;">
+            <video id="videoPlayer" controls style="display:block;"></video>
+            <canvas id="videoOverlay" style="position:absolute; left:0; top:0; pointer-events:none; border-radius:8px;"></canvas>
+        </div>
+        <div id="videoResult" class="result-box"></div>
+    </div>
+
+    <!-- CAMERA -->
+    <div class="box">
+        <h3>Live Camera</h3>
+        <button id="startCameraBtn" onclick="startCamera()">Start Camera</button>
+        <button id="captureCameraBtn" onclick="captureFrame()" disabled>Detect</button>
+        <button id="stopCameraBtn" onclick="stopCamera()" disabled>Stop Camera</button>
+        <div style="position:relative; margin-top:10px;">
+            <video id="camera" autoplay style="display:block;"></video>
+            <canvas id="cameraOverlay" style="position:absolute; left:0; top:0; pointer-events:none; border-radius:8px;"></canvas>
+        </div>
+        <div id="cameraResult" class="result-box"></div>
+    </div>
+
+</div>
+
+<script>
+const API = "http://127.0.0.1:8001/detect/";
+
+// IMAGE
+async function detectImage() {
+    const file = imageInput.files[0];
+    if (!file) return alert("Select image");
+    imagePreview.innerHTML = `<img src="${URL.createObjectURL(file)}">`;
+    sendToBackend(file, "imageResult");
+}
+
+// VIDEO
+let videoDetectInterval = null;
+let isVideoDetecting = false;
+const videoBtn = document.getElementById('videoDetectBtn');
+const videoStopBtn = document.getElementById('videoStopBtn');
+const videoEl = document.getElementById('videoPlayer');
+
+function toggleVideoDetect() {
+    if (isVideoDetecting) {
+        stopVideoDetect();
+        return;
+    }
+    const file = videoInput.files[0];
+    if (!file) return alert('Select video');
+    videoEl.src = URL.createObjectURL(file);
+    videoEl.play().catch(() => {});
+    // start periodic capture after video metadata is ready
+    videoEl.onloadedmetadata = () => {
+        startVideoDetectLoop();
+    };
+}
+
+function startVideoDetectLoop() {
+    if (isVideoDetecting) return;
+    isVideoDetecting = true;
+    videoBtn.textContent = 'Detecting...';
+    videoBtn.disabled = true;
+    videoStopBtn.disabled = false;
+
+    // capture every 800ms (adjust if backend is slow)
+    videoDetectInterval = setInterval(() => {
+        if (videoEl.paused || videoEl.ended) return;
+        captureVideoFrame(videoEl);
+    }, 800);
+}
+
+function stopVideoDetect() {
+    isVideoDetecting = false;
+    videoBtn.textContent = 'Start Detect';
+    videoBtn.disabled = false;
+    videoStopBtn.disabled = true;
+    if (videoDetectInterval) {
+        clearInterval(videoDetectInterval);
+        videoDetectInterval = null;
+    }
+}
+
+function captureVideoFrame(video) {
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(blob => sendToBackend(blob, 'videoResult', 'video'), 'image/jpeg');
+}
+
+// CAMERA
+let cameraStream = null;
+const startBtn = document.getElementById('startCameraBtn');
+const captureBtn = document.getElementById('captureCameraBtn');
+const stopBtn = document.getElementById('stopCameraBtn');
+const cameraEl = document.getElementById('camera');
+
+async function startCamera() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        cameraStream = stream;
+        cameraEl.srcObject = stream;
+        startBtn.disabled = true;
+        captureBtn.disabled = false;
+        stopBtn.disabled = false;
+    } catch (err) {
+        alert('Could not start camera: ' + err.message);
+    }
+}
+
+function captureFrame() {
+    if (!cameraStream) return alert('Start the camera first');
+    const canvas = document.createElement("canvas");
+    canvas.width = cameraEl.videoWidth || 640;
+    canvas.height = cameraEl.videoHeight || 480;
+    canvas.getContext("2d").drawImage(cameraEl, 0, 0);
+    canvas.toBlob(blob => sendToBackend(blob, "cameraResult", 'camera'), "image/jpeg");
+}
+
+function stopCamera() {
+    if (!cameraStream) return;
+    try {
+        cameraStream.getTracks().forEach(track => track.stop());
+    } catch (e) {
+        console.warn('Error stopping tracks', e);
+    }
+    cameraEl.srcObject = null;
+    cameraStream = null;
+    startBtn.disabled = false;
+    captureBtn.disabled = true;
+    stopBtn.disabled = true;
+}
+
+// COMMON
+async function sendToBackend(file, resultBoxId, source=null) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const box = document.getElementById(resultBoxId);
+    box.innerHTML = "Processing...";
+
+    const res = await fetch(API, { method: "POST", body: formData });
+    const data = await res.json();
+
+    box.innerHTML =
+        "Violation: " + (data.violation ? "No Helmet Detected" : "Helmet OK") + "<br>" +
+        "Plate Number: " + (data.plate || "Not Found") + "<br><br>";
+
+    // Show processed image with colored boxes
+    const img = document.createElement("img");
+    img.src = "data:image/jpeg;base64," + data.image;
+    box.appendChild(img);
+
+    // draw overlay on video/camera if backend returned boxes and source provided
+    if (data.boxes && source) {
+        drawOverlay(data.boxes, source);
+    }
+}
+
+function drawOverlay(boxes, target) {
+    const videoEl = (target === 'video') ? document.getElementById('videoPlayer') : document.getElementById('camera');
+    const overlay = (target === 'video') ? document.getElementById('videoOverlay') : document.getElementById('cameraOverlay');
+    if (!videoEl || !overlay) return;
+
+    // set overlay size to displayed video size
+    const dispW = videoEl.clientWidth;
+    const dispH = videoEl.clientHeight;
+    overlay.width = dispW;
+    overlay.height = dispH;
+    overlay.style.width = dispW + 'px';
+    overlay.style.height = dispH + 'px';
+
+    const ctx = overlay.getContext('2d');
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+    if (!boxes || !boxes.length) return;
+
+    const scaleX = dispW / (videoEl.videoWidth || dispW);
+    const scaleY = dispH / (videoEl.videoHeight || dispH);
+
+    boxes.forEach(b => {
+        const [x1, y1, x2, y2] = b.xy;
+        const cls = b.cls;
+        const conf = (b.conf || 0).toFixed(2);
+        const sx = x1 * scaleX;
+        const sy = y1 * scaleY;
+        const sw = (x2 - x1) * scaleX;
+        const sh = (y2 - y1) * scaleY;
+        const color = (cls === 0) ? 'rgba(0,200,0,1)' : (cls === 1) ? 'rgba(200,0,0,1)' : 'rgba(0,120,200,1)';
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = Math.max(2, Math.round(Math.min(dispW, dispH) / 200));
+        ctx.strokeRect(sx, sy, sw, sh);
+
+        ctx.fillStyle = color;
+        ctx.font = `${14}px Arial`;
+        const label = (cls === 0) ? `Helmet ${conf}` : (cls === 1) ? `No Helmet ${conf}` : `C${cls} ${conf}`;
+        const textW = ctx.measureText(label).width + 6;
+        const textH = 18;
+        ctx.fillRect(sx, Math.max(0, sy - textH), textW, textH);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(label, sx + 3, Math.max(12, sy - 4));
+    });
+}
+</script>
+</script>
+
+<footer>Built with YOLOv8 • Helmet Detector</footer>
+
+</body>
+</html>
